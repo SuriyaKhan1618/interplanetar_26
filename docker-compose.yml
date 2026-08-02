@@ -1,0 +1,10 @@
+services:
+  ros2:
+    container_name: interplanetar_26
+    build:
+      context:
+      dockerfile: Dockerfile
+    volumes:
+      - .:/ros2_ws
+    stdin_open: true
+    tty: true
