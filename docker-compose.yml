@@ -2,7 +2,7 @@ services:
   ros2:
     container_name: interplanetar_26
     build:
-      context:
+      context: .
       dockerfile: Dockerfile
     volumes:
       - .:/ros2_ws
