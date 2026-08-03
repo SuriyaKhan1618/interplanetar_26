@@ -4,7 +4,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    network_mode: host
     volumes:
       - .:/ros2_ws
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
     stdin_open: true
     tty: true
+    ipc: host
+    privileged: true
