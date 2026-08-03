@@ -1,0 +1,311 @@
+<?xml version='1.0'?>
+<sdf version='1.8'>
+    <model name="quadrotor">
+        <pose>0 0 0.2 0 0 0</pose>
+
+        <link name='base_link'>
+            <inertial>
+                <mass>1.5</mass>
+                <pose>0 0 0 0 0 0</pose>
+                <inertia>
+                    <ixx>0.015</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>0.015</iyy>
+                    <iyz>0</iyz>
+                    <izz>0.03</izz>
+                </inertia>
+            </inertial>
+
+            <visual name="body_visual">
+                <geometry>
+                    <box>
+                        <size>0.3 0.3 0.08</size>
+                    </box>
+                </geometry>
+                <material>
+                    <ambient>0.1 0.1 0.1 1</ambient>
+                    <diffuse>0.2 0.2 0.8 1</diffuse>
+                </material>
+            </visual>
+
+            <collision name='body_collision'>
+                <geometry>
+                    <box>
+                        <size>0.3 0.3 0.08</size>
+                    </box>
+                </geometry>
+            </collision>
+        </link>
+
+
+        <link name='rotor_1'>
+            <pose>0.15 -0.15 0.04 0 0 0</pose>
+            <inertial>
+                <mass>0.05</mass>
+                <inertia>
+                    <ixx>0.0001</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>0.0001</iyy>
+                    <iyz>0</iyz>
+                    <izz>0.0002</izz>
+                </inertia>
+            </inertial>
+
+            <visual name="r1_visual">
+                <geometry>
+                    <cylinder>
+                        <radius>0.1</radius>
+                        <length>0.01</length>
+                    </cylinder>
+                </geometry>
+                <material>
+                    <ambient>0.1 0.1 0.1 1</ambient>
+                    <diffuse>0.2 0.2 0.8 1</diffuse>
+                </material>
+            </visual>
+        </link>
+
+        <joint name='rotor_1_joint' type='revolute'>
+            <parent>base_link</parent>
+            <child>rotor_1</child>
+            <axis>
+                <xyz>0 0 1</xyz>
+                <limit>
+                    <lower>-1e16</lower>
+                    <upper>1e16</upper>
+                </limit>
+            </axis>
+        </joint>
+
+
+        <link name='rotor_2'>
+            <pose>0.15 0.15 0.04 0 0 0</pose>
+            <inertial>
+                <mass>0.05</mass>
+                <inertia>
+                    <ixx>0.0001</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>0.0001</iyy>
+                    <iyz>0</iyz>
+                    <izz>0.0002</izz>
+                </inertia>
+            </inertial>
+
+            <visual name="r2_visual">
+                <geometry>
+                    <cylinder>
+                        <radius>0.1</radius>
+                        <length>0.01</length>
+                    </cylinder>
+                </geometry>
+                <material>
+                    <ambient>0.1 0.1 0.1 1</ambient>
+                    <diffuse>0.2 0.2 0.8 1</diffuse>
+                </material>
+            </visual>
+        </link>
+
+        <joint name='rotor_2_joint' type='revolute'>
+            <parent>base_link</parent>
+            <child>rotor_2</child>
+            <axis>
+                <xyz>0 0 1</xyz>
+                <limit>
+                    <lower>-1e16</lower>
+                    <upper>1e16</upper>
+                </limit>
+            </axis>
+        </joint>
+
+
+        <link name='rotor_3'>
+            <pose>-0.15 0.15 0.04 0 0 0</pose>
+            <inertial>
+                <mass>0.05</mass>
+                <inertia>
+                    <ixx>0.0001</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>0.0001</iyy>
+                    <iyz>0</iyz>
+                    <izz>0.0002</izz>
+                </inertia>
+            </inertial>
+
+            <visual name="r3_visual">
+                <geometry>
+                    <cylinder>
+                        <radius>0.1</radius>
+                        <length>0.01</length>
+                    </cylinder>
+                </geometry>
+                <material>
+                    <ambient>0.1 0.1 0.1 1</ambient>
+                    <diffuse>0.2 0.2 0.8 1</diffuse>
+                </material>
+            </visual>
+        </link>
+
+        <joint name='rotor_3_joint' type='revolute'>
+            <parent>base_link</parent>
+            <child>rotor_3</child>
+            <axis>
+                <xyz>0 0 1</xyz>
+                <limit>
+                    <lower>-1e16</lower>
+                    <upper>1e16</upper>
+                </limit>
+            </axis>
+        </joint>
+
+
+        <link name='rotor_4'>
+            <pose>-0.15 -0.15 0.04 0 0 0</pose>
+            <inertial>
+                <mass>0.05</mass>
+                <inertia>
+                    <ixx>0.0001</ixx>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyy>0.0001</iyy>
+                    <iyz>0</iyz>
+                    <izz>0.0002</izz>
+                </inertia>
+            </inertial>
+
+            <visual name="r4_visual">
+                <geometry>
+                    <cylinder>
+                        <radius>0.1</radius>
+                        <length>0.01</length>
+                    </cylinder>
+                </geometry>
+                <material>
+                    <ambient>0.1 0.1 0.1 1</ambient>
+                    <diffuse>0.2 0.2 0.8 1</diffuse>
+                </material>
+            </visual>
+        </link>
+
+        <joint name='rotor_4_joint' type='revolute'>
+            <parent>base_link</parent>
+            <child>rotor_4</child>
+            <axis>
+                <xyz>0 0 1</xyz>
+                <limit>
+                    <lower>-1e16</lower>
+                    <upper>1e16</upper>
+                </limit>
+            </axis>
+        </joint>
+
+
+        <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+            <robotNamespace>quadrotor</robotNamespace>
+            <jointName>rotor_1_joint</jointName>
+            <linkName>rotor_1</linkName>
+            <turningDirection>ccw</turningDirection>
+            <timeConstantUp>0.0125</timeConstantUp>
+            <timeConstantDown>0.025</timeConstantDown>
+            <maxRotVelocity>800</maxRotVelocity>
+            <motorConstant>8.548e-06</motorConstant>
+            <momentConstant>0.016</momentConstant>
+            <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+            <motorNumber>0</motorNumber>
+        </plugin>
+
+        <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+            <robotNamespace>quadrotor</robotNamespace>
+            <jointName>rotor_2_joint</jointName>
+            <linkName>rotor_2</linkName>
+            <turningDirection>cw</turningDirection>
+            <timeConstantUp>0.0125</timeConstantUp>
+            <timeConstantDown>0.025</timeConstantDown>
+            <maxRotVelocity>800</maxRotVelocity>
+            <motorConstant>8.548e-06</motorConstant>
+            <momentConstant>0.016</momentConstant>
+            <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+            <motorNumber>1</motorNumber>
+        </plugin>
+
+        <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+            <robotNamespace>quadrotor</robotNamespace>
+            <jointName>rotor_3_joint</jointName>
+            <linkName>rotor_3</linkName>
+            <turningDirection>ccw</turningDirection>
+            <timeConstantUp>0.0125</timeConstantUp>
+            <timeConstantDown>0.025</timeConstantDown>
+            <maxRotVelocity>800</maxRotVelocity>
+            <motorConstant>8.548e-06</motorConstant>
+            <momentConstant>0.016</momentConstant>
+            <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+            <motorNumber>2</motorNumber>
+        </plugin>
+
+        <plugin filename="gz-sim-multicopter-motor-model-system" name="gz::sim::systems::MulticopterMotorModel">
+            <robotNamespace>quadrotor</robotNamespace>
+            <jointName>rotor_4_joint</jointName>
+            <linkName>rotor_4</linkName>
+            <turningDirection>cw</turningDirection>
+            <timeConstantUp>0.0125</timeConstantUp>
+            <timeConstantDown>0.025</timeConstantDown>
+            <maxRotVelocity>800</maxRotVelocity>
+            <motorConstant>8.548e-06</motorConstant>
+            <momentConstant>0.016</momentConstant>
+            <commandSubTopic>gazebo/command/motor_speed</commandSubTopic>
+            <motorNumber>3</motorNumber>
+        </plugin>
+
+        <plugin filename="gz-sim-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
+            <robotNamespace>quadrotor</robotNamespace>
+            <commandSubTopic>cmd_vel</commandSubTopic>
+            <enableSubTopic>enable</enableSubTopic>
+            <comLinkName>base_link</comLinkName>
+            
+            <velocityGain>2.7 2.7 2.7</velocityGain>
+            <attitudeGain>2.0 2.0 0.15</attitudeGain>
+            <angularRateGain>0.4 0.5 0.0</angularRateGain>
+            <maximumLinearVelocity>5 5 5</maximumLinearVelocity>
+            <maximumAngularVelocity>0 0 2</maximumAngularVelocity>
+
+            <rotorConfiguration>
+                <rotor>
+                    <jointName>rotor_1_joint</jointName>
+                    <forceConstant>8.548e-06</forceConstant>
+                    <momentConstant>0.016</momentConstant>
+                    <direction>1</direction> <!-- CCW -->
+                </rotor>
+                <rotor>
+                    <jointName>rotor_2_joint</jointName>
+                    <forceConstant>8.548e-06</forceConstant>
+                    <momentConstant>0.016</momentConstant>
+                    <direction>-1</direction> <!-- CW -->
+                </rotor>
+                <rotor>
+                    <jointName>rotor_3_joint</jointName>
+                    <forceConstant>8.548e-06</forceConstant>
+                    <momentConstant>0.016</momentConstant>
+                    <direction>1</direction> <!-- CCW -->
+                </rotor>
+                <rotor>
+                    <jointName>rotor_4_joint</jointName>
+                    <forceConstant>8.548e-06</forceConstant>
+                    <momentConstant>0.016</momentConstant>
+                    <direction>-1</direction> <!-- CW -->
+                </rotor>
+            </rotorConfiguration>
+        </plugin>
+
+        <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+            <robotNamespace>quadrotor</robotNamespace>
+            <odomFrame>world</odomFrame>
+            <robotBaseFrame>base_link</robotBaseFrame>
+            <odomPublishFrequency>50</odomPublishFrequency>
+            <odomTopic>odom</odomTopic>
+            <dimensions>3</dimensions>
+        </plugin>
+    </model>
+</sdf>
