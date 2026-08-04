@@ -24,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            "gen_motion = controller.motion_gen:main"
         ],
     },
 )
