@@ -1,12 +1,21 @@
 from PyQt6.QtCore import Qt, QSize, QRect
-from PyQt6.QtWidgets import QPushButton, QGraphicsDropShadowEffect
+from PyQt6.QtWidgets import (
+    QGridLayout,
+    QPushButton,
+    QWidget,
+    QRadioButton,
+    QGraphicsDropShadowEffect
+)
 from PyQt6.QtGui import QRegion, QColor
 
 class CircularButton(QPushButton):
-    def __init__(self, text, size, font_size, parent=None):
+    def __init__(self, text, size, font_size, flag, parent=None):
         super().__init__(text, parent)
 
         self.setObjectName("controlbutton")
+
+        self.flag = flag
+
         radius = size//2
         self.setFixedSize(QSize(size, size))
         self.setMask(QRegion(QRect(0, 0, size, size),
@@ -23,10 +32,13 @@ class CircularButton(QPushButton):
         self.setGraphicsEffect(shadow)
 
 class OvalButton(QPushButton):
-    def __init__(self, text, width, height, font_size, parent=None):
+    def __init__(self, text, width, height, font_size, flag, parent=None):
         super().__init__(text, parent)
 
         self.setObjectName("controlbutton")
+
+        self.flag = flag
+
         radius = width//2
         self.setFixedSize(QSize(width, height))
 
@@ -40,3 +52,20 @@ class OvalButton(QPushButton):
         shadow.setColor(QColor(0, 0, 0, 200))
 
         self.setGraphicsEffect(shadow)
+
+
+class ModeSelector(QWidget):
+    def __init__(self):
+        super().__init__()
+        layout = QGridLayout(self)
+
+        self.voice_button = QRadioButton("Voice Control Mode")
+        self.manual_button = QRadioButton("Manual Control Mode")
+
+        self.voice_button.setChecked(True)
+
+        layout.addWidget(self.voice_button, 0, 0, alignment=Qt.AlignmentFlag.AlignRight)
+        layout.addWidget(self.manual_button, 0, 1, alignment=Qt.AlignmentFlag.AlignLeft)
+
+        layout.setColumnStretch(0, 5)
+        layout.setColumnStretch(1, 5)
