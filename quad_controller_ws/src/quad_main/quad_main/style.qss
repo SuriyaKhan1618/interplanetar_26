@@ -1,0 +1,53 @@
+QMainWindow, QWidget#mainwindow {
+    background-color: #000000
+}
+
+#panel {
+    background-color: #0c0c0c;
+    border-radius: 12px;
+    margin: 10px;
+    padding: 15px
+}
+
+#invisiblepanel {
+    background-color: #000000;
+    border-radius: 12px;
+    margin: 10px;
+    padding: 15px
+}
+
+#highlightedcontainer {
+    background-color: #ffffff
+}
+
+QPushButton#controlbutton {
+    font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
+    background-color: #ffffff;
+    color: #000000;
+    font-weight: bold;
+    border-width: 3px;
+    border-style: raised;
+    padding: 0px
+}
+
+QPushButton#controlbutton:hover {
+    font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
+    background-color: #ffe83c;
+    color: #000000;
+    font-weight: bold;
+    border-width: 3px;
+    border-style: raised;
+    padding: 0px
+}
+
+QPushButton#controlbutton:pressed {
+    font-family: "DejaVu Sans", "Liberation Sans", sans-serif;
+    background-color: #ffe83c;
+    color: #000000;
+    font-weight: bold;
+    border-width: 3px;
+    border-style: raised;
+    padding-top: 3px;
+    padding-left: 1px
+}
+
