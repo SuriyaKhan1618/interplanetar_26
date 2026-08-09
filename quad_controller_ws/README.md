@@ -25,6 +25,12 @@ Launch the quadrotor simulation:
 ros2 launch quad_sim sim.launch.py
 ```
 
+Launch the GUI dashboard/controller:
+
+```bash
+ros2 run quad_main quad_controller
+```
+
 ##EXIT
 
 Since Ctrl+C raises Python and PyQt6 conflicts, please instead exit the GUI app with the 'x' button.
