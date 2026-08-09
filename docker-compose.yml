@@ -8,9 +8,14 @@ services:
     volumes:
       - .:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ~/.Xauthority:/root/.Xauthority:ro
+      - ${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native
+      - vosk_cache:/root/.cache/vosk
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+      - XAUTHORITY=/root/.Xauthority
+      - PULSE_SERVER=unix:${XDG_RUNTIME_DIR}/pulse/native
     devices:
       - /dev/snd:/dev/snd
     group_add:
@@ -19,3 +24,6 @@ services:
     tty: true
     ipc: host
     privileged: true
+
+volumes:
+      vosk_cache:

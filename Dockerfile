@@ -7,20 +7,25 @@ WORKDIR /ros2_ws
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-colcon-common-extensions \
     python3-pip \
-    python3-pyqt6\
+    python3-pyqt6 \
+    python3-transforms3d \
     libsqlite3-dev \
     portaudio19-dev \
+    libasound2-dev \
     alsa-utils \
+    pulseaudio-utils \
     ros-jazzy-ros-gz \
     ros-jazzy-ros-gz-sim \
     ros-jazzy-ros-gz-bridge \
     ros-jazzy-geometry-msgs \
     ros-jazzy-nav-msgs \
+    ros-jazzy-tf-transformations \
     x11-apps \
     mesa-utils \
     libgl1-mesa-dri \
     libglx-mesa0 \
     libgl1 \
+    libxcb-cursor0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip3 install --no-cache-dir vosk sounddevice --break-system-packages
