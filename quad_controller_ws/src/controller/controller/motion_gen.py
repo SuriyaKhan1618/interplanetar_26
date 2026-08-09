@@ -13,7 +13,7 @@ class MotionGenerator(Node):
             "velZ": 0.0
         }
 
-        self.publisher = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.publisher = self.create_publisher(Twist, '/cmd_vel', 10)
         self.subscription = self.create_subscription(String, 'usr_com', self.calc_vel, 10)
         self.timer = self.create_timer(0.1, self.pub_vel)
 

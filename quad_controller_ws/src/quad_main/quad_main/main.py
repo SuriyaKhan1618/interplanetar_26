@@ -1,5 +1,14 @@
 import sys
-from PyQt6.QtCore import Qt, QSize
+import os
+from ament_index_python.packages import get_package_share_directory
+import math
+
+from PyQt6.QtCore import (
+    Qt,
+    QSize,
+    QThread,
+    pyqtSignal
+)
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
@@ -11,11 +20,106 @@ from PyQt6.QtWidgets import (
     QStyle
 )
 from PyQt6.QtGui import QFont, QFontDatabase
-from widgets import CircularButton, OvalButton, ModeSelector
+from .widgets import CircularButton, OvalButton, ModeSelector
+
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from std_msgs.msg import String
+from nav_msgs.msg import Odometry
+import tf_transformations
+
 
 def load_stylesheet(filename):
-    with open(filename, "r") as f:
-        return f.read()
+    try:
+        pkg_share = get_package_share_directory('quad_main')
+        qss_path = os.path.join(pkg_share, filename)
+        
+        with open(qss_path, "r") as f:
+            return f.read()
+    except Exception as e:
+        print(f"Warning: Could not load stylesheet '{filename}': {e}")
+        return ""
+
+
+class ROSNode(QThread):
+    telemetry_data = pyqtSignal(
+        float, float, float,
+        float, float, float,
+        float, float, float,
+        float, float, float
+    )
+
+    def __init__(self):
+        super().__init__()
+        self.node = None
+
+    def run(self):
+        print("Running")
+        rclpy.init()
+        self.node = Node("quad_connector")
+        print("Made node")
+
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
+        self.node.create_subscription(
+            Odometry,
+            "/quadrotor/odom",
+            self.emit_telemetry,
+            qos_profile
+        )
+
+        try:
+            rclpy.spin(self.node)
+        finally:
+            self.node.destroy_node()
+            rclpy.shutdown()
+
+    def emit_telemetry(self, msg):
+        print("Signal emitted")
+
+        x = msg.pose.pose.position.x
+        y = msg.pose.pose.position.y
+        z = msg.pose.pose.position.z
+
+        quaternion = [
+            msg.pose.pose.orientation.x,
+            msg.pose.pose.orientation.y,
+            msg.pose.pose.orientation.z,
+            msg.pose.pose.orientation.w
+        ]
+
+        x_rad, y_rad, z_rad = tf_transformations.euler_from_quaternion(quaternion)
+
+        x_rot = math.degrees(x_rad)
+        y_rot = math.degrees(y_rad)
+        z_rot = math.degrees(z_rad)
+
+        x_vel = msg.twist.twist.linear.x
+        y_vel = msg.twist.twist.linear.y
+        z_vel = msg.twist.twist.linear.z
+
+        x_ang_vel = msg.twist.twist.angular.x
+        y_ang_vel = msg.twist.twist.angular.y
+        z_ang_vel = msg.twist.twist.angular.z
+
+        self.telemetry_data.emit(
+            x, y, z,
+            x_rot, y_rot, z_rot,
+            x_vel, y_vel, z_vel,
+            x_ang_vel, y_ang_vel, z_ang_vel
+        )
+
+    def stop(self):
+        if self.node:
+            self.node.executor.wake()
+        self.quit()
+        self.wait()
 
 
 class TelemetryDashboard(QWidget):
@@ -28,311 +132,317 @@ class TelemetryDashboard(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setObjectName("mainwindow")
 
-        screen = QApplication.primaryScreen().availableGeometry()
-        width = screen.width()
-        height = screen.height()
+        self.screen = QApplication.primaryScreen().availableGeometry()
+        self.width = self.screen.width()
+        self.height = self.screen.height()
 
-        self.resize(width, height)
+        self.resize(self.width, self.height)
 
-        satoshi_black = self.external_font("Satoshi-Black.otf", 25)
-        satoshi_medium = self.external_font("Satoshi-Medium.otf", 15)
-        satoshi_black_large = self.external_font("Satoshi-Black.otf", 40)
+        self.satoshi_black = self.external_font("Satoshi-Black.otf", 25)
+        self.satoshi_medium = self.external_font("Satoshi-Medium.otf", 15)
+        self.satoshi_black_large = self.external_font("Satoshi-Black.otf", 40)
 
-        grid_layout = QGridLayout(self)
-        grid_layout.setContentsMargins(0, 0, 0, 0)
-        grid_layout.setSpacing(0)
+        self.grid_layout = QGridLayout(self)
+        self.grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.grid_layout.setSpacing(0)
 
-        system_panel = QFrame()
-        system_panel.setObjectName("invisiblepanel")
-        system_panel_layout = QHBoxLayout(system_panel)
-        system_panel_layout.setContentsMargins(0, 0, 0, 0)
-        system_panel_layout.setSpacing(0)
+        self.system_panel = QFrame()
+        self.system_panel.setObjectName("invisiblepanel")
+        self.system_panel_layout = QHBoxLayout(self.system_panel)
+        self.system_panel_layout.setContentsMargins(0, 0, 0, 0)
+        self.system_panel_layout.setSpacing(0)
 
-        status_panel = QFrame()
-        status_panel.setObjectName("highlightedcontainer")
-        status_panel.setFrameShadow(QFrame.Shadow.Raised)
-        status_panel_layout = QVBoxLayout(status_panel)
+        self.status_panel = QFrame()
+        self.status_panel.setObjectName("highlightedcontainer")
+        self.status_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.status_panel_layout = QVBoxLayout(self.status_panel)
 
-        status_label = QLabel("System Online")
-        status_label.setFont(satoshi_black)
-        status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        status_label.setObjectName("blacklabel")
-        status_panel_layout.addWidget(status_label, 1)
+        self.status_label = QLabel("System Online")
+        self.status_label.setFont(self.satoshi_black)
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.status_label.setObjectName("blacklabel")
+        self.status_panel_layout.addWidget(self.status_label, 1)
 
-        status_sublabel = QLabel("All telemetry data is updated.")
-        status_sublabel.setFont(satoshi_medium)
-        status_sublabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        status_sublabel.setObjectName("blacklabel")
-        status_panel_layout.addWidget(status_sublabel, 1)
+        self.status_sublabel = QLabel("All telemetry data is updated.")
+        self.status_sublabel.setFont(self.satoshi_medium)
+        self.status_sublabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.status_sublabel.setObjectName("blacklabel")
+        self.status_panel_layout.addWidget(self.status_sublabel, 1)
 
-        motion_panel = QFrame()
-        motion_panel.setObjectName("transcontainer")
-        motion_panel.setFrameShadow(QFrame.Shadow.Sunken)
-        motion_panel_layout = QVBoxLayout(motion_panel)
+        self.motion_panel = QFrame()
+        self.motion_panel.setObjectName("transcontainer")
+        self.motion_panel.setFrameShadow(QFrame.Shadow.Sunken)
+        self.motion_panel_layout = QVBoxLayout(self.motion_panel)
 
-        motion_label = QLabel("Hovering")
-        motion_label.setFont(satoshi_black)
-        motion_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        motion_label.setObjectName("whitelabel")
-        motion_panel_layout.addWidget(motion_label, 1)
+        self.motion_label = QLabel("Hovering")
+        self.motion_label.setFont(self.satoshi_black)
+        self.motion_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.motion_label.setObjectName("whitelabel")
+        self.motion_panel_layout.addWidget(self.motion_label, 1)
 
-        motion_sublabel = QLabel("At (x, y, z)")
-        motion_sublabel.setFont(satoshi_medium)
-        motion_sublabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        motion_sublabel.setObjectName("whitelabel")
-        motion_panel_layout.addWidget(motion_sublabel, 1)
+        self.motion_sublabel = QLabel("At (x, y, z)")
+        self.motion_sublabel.setFont(self.satoshi_medium)
+        self.motion_sublabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.motion_sublabel.setObjectName("whitelabel")
+        self.motion_panel_layout.addWidget(self.motion_sublabel, 1)
 
-        z_panel = QFrame()
-        z_panel.setObjectName("transcontainer")
-        z_panel.setFrameShadow(QFrame.Shadow.Sunken)
-        z_panel_layout = QVBoxLayout(z_panel)
+        self.z_panel = QFrame()
+        self.z_panel.setObjectName("transcontainer")
+        self.z_panel.setFrameShadow(QFrame.Shadow.Sunken)
+        self.z_panel_layout = QVBoxLayout(self.z_panel)
 
-        z_label = QLabel("Level flight")
-        z_label.setFont(satoshi_black)
-        z_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        z_label.setObjectName("whitelabel")
-        z_panel_layout.addWidget(z_label, 1)
+        self.z_label = QLabel("Level flight")
+        self.z_label.setFont(self.satoshi_black)
+        self.z_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.z_label.setObjectName("whitelabel")
+        self.z_panel_layout.addWidget(self.z_label, 1)
 
-        z_sublabel = QLabel("At z")
-        z_sublabel.setFont(satoshi_medium)
-        z_sublabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        z_sublabel.setObjectName("whitelabel")
-        z_panel_layout.addWidget(z_sublabel, 1)
+        self.z_sublabel = QLabel("At z")
+        self.z_sublabel.setFont(self.satoshi_medium)
+        self.z_sublabel.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.z_sublabel.setObjectName("whitelabel")
+        self.z_panel_layout.addWidget(self.z_sublabel, 1)
 
-        system_panel_layout.addWidget(status_panel, 1)
-        system_panel_layout.addWidget(motion_panel, 1)
-        system_panel_layout.addWidget(z_panel, 1)
+        self.system_panel_layout.addWidget(self.status_panel, 1)
+        self.system_panel_layout.addWidget(self.motion_panel, 1)
+        self.system_panel_layout.addWidget(self.z_panel, 1)
 
-        control_panel = QFrame()
-        control_panel.setObjectName("panel")
-        control_panel.setFrameShadow(QFrame.Shadow.Raised)
-        control_panel_layout = QGridLayout(control_panel)
-        control_panel_layout.setSpacing(5)
-        control_panel_layout.setContentsMargins(8, 8, 8, 8)
+        self.control_panel = QFrame()
+        self.control_panel.setObjectName("panel")
+        self.control_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.control_panel_layout = QGridLayout(self.control_panel)
+        self.control_panel_layout.setSpacing(5)
+        self.control_panel_layout.setContentsMargins(8, 8, 8, 8)
 
-        stop = CircularButton("", 150, 75, "stop")
-        forward = CircularButton("\u2B06", 120, 55, "forward")
-        backward = CircularButton("\u2B07", 120, 55, "backward")
-        left = CircularButton("\u2B05", 120, 55, "left")
-        right = CircularButton("\u27A1", 120, 55, "right")
-        up = OvalButton("\u2B06\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.", 60, 300, 17, "up")
-        down = OvalButton(".\n.\n.\n.\n.\n.\n.\n.\n.\n.\n\u2B07", 60, 300, 17, "down")
+        self.stop = CircularButton("", 150, 75, "stop")
+        self.forward = CircularButton("\u2B06", 120, 55, "forward")
+        self.backward = CircularButton("\u2B07", 120, 55, "backward")
+        self.left = CircularButton("\u2B05", 120, 55, "left")
+        self.right = CircularButton("\u27A1", 120, 55, "right")
+        self.up = OvalButton("\u2B06\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.", 60, 300, 17, "up")
+        self.down = OvalButton(".\n.\n.\n.\n.\n.\n.\n.\n.\n.\n\u2B07", 60, 300, 17, "down")
 
-        pause_icon = stop.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)
-        stop.setIcon(pause_icon)
-        stop.setIconSize(QSize(150, 150))
+        self.pause_icon = self.stop.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)
+        self.stop.setIcon(self.pause_icon)
+        self.stop.setIconSize(QSize(150, 150))
 
-        control_panel_layout.addWidget(up, 0, 0, 3, 1, alignment=Qt.AlignmentFlag.AlignRight)
-        control_panel_layout.addWidget(stop, 1, 2, alignment=Qt.AlignmentFlag.AlignCenter)
-        control_panel_layout.addWidget(forward, 0, 2, alignment=Qt.AlignmentFlag.AlignCenter)
-        control_panel_layout.addWidget(backward, 2, 2, alignment=Qt.AlignmentFlag.AlignCenter)
-        control_panel_layout.addWidget(left, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
-        control_panel_layout.addWidget(right, 1, 3, alignment=Qt.AlignmentFlag.AlignLeft)
-        control_panel_layout.addWidget(down, 0, 4, 3, 1, alignment=Qt.AlignmentFlag.AlignLeft)        
+        self.control_panel_layout.addWidget(self.up, 0, 0, 3, 1, alignment=Qt.AlignmentFlag.AlignRight)
+        self.control_panel_layout.addWidget(self.stop, 1, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.control_panel_layout.addWidget(self.forward, 0, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.control_panel_layout.addWidget(self.backward, 2, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.control_panel_layout.addWidget(self.left, 1, 1, alignment=Qt.AlignmentFlag.AlignRight)
+        self.control_panel_layout.addWidget(self.right, 1, 3, alignment=Qt.AlignmentFlag.AlignLeft)
+        self.control_panel_layout.addWidget(self.down, 0, 4, 3, 1, alignment=Qt.AlignmentFlag.AlignLeft)        
 
-        control_panel_layout.setRowStretch(0, 3)
-        control_panel_layout.setRowStretch(1, 4)
-        control_panel_layout.setRowStretch(2, 3)
-        control_panel_layout.setColumnStretch(0, 1)
-        control_panel_layout.setColumnStretch(1, 2)
-        control_panel_layout.setColumnStretch(2, 4)
-        control_panel_layout.setColumnStretch(3, 2)
-        control_panel_layout.setColumnStretch(4, 1)
+        self.control_panel_layout.setRowStretch(0, 3)
+        self.control_panel_layout.setRowStretch(1, 4)
+        self.control_panel_layout.setRowStretch(2, 3)
+        self.control_panel_layout.setColumnStretch(0, 1)
+        self.control_panel_layout.setColumnStretch(1, 2)
+        self.control_panel_layout.setColumnStretch(2, 4)
+        self.control_panel_layout.setColumnStretch(3, 2)
+        self.control_panel_layout.setColumnStretch(4, 1)
 
-        bottom_panel = QFrame()
-        bottom_panel.setObjectName("invisiblepanel")
-        bottom_panel_layout = QHBoxLayout(bottom_panel)
+        self.bottom_panel = QFrame()
+        self.bottom_panel.setObjectName("invisiblepanel")
+        self.bottom_panel_layout = QHBoxLayout(self.bottom_panel)
 
-        mode_manager = ModeSelector()
-        bottom_panel_layout.addWidget(mode_manager, 1)
+        self.mode_manager = ModeSelector()
+        self.bottom_panel_layout.addWidget(self.mode_manager, 1)
 
-        right_panel = QFrame()
-        right_panel.setObjectName("panel")
-        right_panel.setFrameShadow(QFrame.Shadow.Raised)
-        right_panel_layout = QGridLayout(right_panel)
+        self.right_panel = QFrame()
+        self.right_panel.setObjectName("panel")
+        self.right_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.right_panel_layout = QGridLayout(self.right_panel)
 
-        motion_x_sublabel = QLabel("Angular velocity about x: 0 rad/s")
-        motion_x_sublabel.setFont(satoshi_medium)
-        motion_x_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        motion_x_sublabel.setObjectName("whitelabel")
-        motion_panel_layout.addWidget(motion_x_sublabel, 1)
+        self.motion_x_sublabel = QLabel("Angular velocity about x: 0 rad/s")
+        self.motion_x_sublabel.setFont(self.satoshi_medium)
+        self.motion_x_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_x_sublabel.setObjectName("whitelabel")
 
-        motion_y_sublabel = QLabel("Angular velocity about y: 0 rad/s")
-        motion_y_sublabel.setFont(satoshi_medium)
-        motion_y_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        motion_y_sublabel.setObjectName("whitelabel")
-        motion_panel_layout.addWidget(motion_y_sublabel, 1)
+        self.motion_y_sublabel = QLabel("Angular velocity about y: 0 rad/s")
+        self.motion_y_sublabel.setFont(self.satoshi_medium)
+        self.motion_y_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_y_sublabel.setObjectName("whitelabel")
 
-        motion_z_sublabel = QLabel("Angular velocity about z: 0 rad/s")
-        motion_z_sublabel.setFont(satoshi_medium)
-        motion_z_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        motion_z_sublabel.setObjectName("whitelabel")
-        motion_panel_layout.addWidget(motion_z_sublabel, 1)
+        self.motion_z_sublabel = QLabel("Angular velocity about z: 0 rad/s")
+        self.motion_z_sublabel.setFont(self.satoshi_medium)
+        self.motion_z_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.motion_z_sublabel.setObjectName("whitelabel")
 
-        x_ang_vel_panel = QFrame()
-        x_ang_vel_panel.setObjectName("transcontainer")
-        x_ang_vel_panel_layout = QVBoxLayout(x_ang_vel_panel)
+        self.x_ang_vel_panel = QFrame()
+        self.x_ang_vel_panel.setObjectName("transcontainer")
+        self.x_ang_vel_panel_layout = QVBoxLayout(self.x_ang_vel_panel)
 
-        x_ang_vel_label = QLabel("0°")
-        x_ang_vel_label.setFont(satoshi_black_large)
-        x_ang_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        x_ang_vel_label.setObjectName("yellowlabel")
-        x_ang_vel_panel_layout.addWidget(x_ang_vel_label, 1)
+        self.x_ang_vel_label = QLabel("0°")
+        self.x_ang_vel_label.setFont(self.satoshi_black_large)
+        self.x_ang_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.x_ang_vel_label.setObjectName("yellowlabel")
+        self.x_ang_vel_panel_layout.addWidget(self.x_ang_vel_label, 1)
 
-        x_ang_vel_sublabel = QLabel("About x axis")
-        x_ang_vel_sublabel.setFont(satoshi_medium)
-        x_ang_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        x_ang_vel_sublabel.setObjectName("yellowlabel")
-        x_ang_vel_panel_layout.addWidget(x_ang_vel_sublabel, 1)
+        self.x_ang_vel_sublabel = QLabel("About x axis")
+        self.x_ang_vel_sublabel.setFont(self.satoshi_medium)
+        self.x_ang_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.x_ang_vel_sublabel.setObjectName("yellowlabel")
+        self.x_ang_vel_panel_layout.addWidget(self.x_ang_vel_sublabel, 1)
 
-        y_ang_vel_panel = QFrame()
-        y_ang_vel_panel.setObjectName("transcontainer")
-        y_ang_vel_panel_layout = QVBoxLayout(y_ang_vel_panel)
+        self.y_ang_vel_panel = QFrame()
+        self.y_ang_vel_panel.setObjectName("transcontainer")
+        self.y_ang_vel_panel_layout = QVBoxLayout(self.y_ang_vel_panel)
 
-        y_ang_vel_label = QLabel("0°")
-        y_ang_vel_label.setFont(satoshi_black_large)
-        y_ang_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        y_ang_vel_label.setObjectName("yellowlabel")
-        y_ang_vel_panel_layout.addWidget(y_ang_vel_label, 1)
+        self.y_ang_vel_label = QLabel("0°")
+        self.y_ang_vel_label.setFont(self.satoshi_black_large)
+        self.y_ang_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.y_ang_vel_label.setObjectName("yellowlabel")
+        self.y_ang_vel_panel_layout.addWidget(self.y_ang_vel_label, 1)
 
-        y_ang_vel_sublabel = QLabel("About y axis")
-        y_ang_vel_sublabel.setFont(satoshi_medium)
-        y_ang_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        y_ang_vel_sublabel.setObjectName("yellowlabel")
-        y_ang_vel_panel_layout.addWidget(y_ang_vel_sublabel, 1)
+        self.y_ang_vel_sublabel = QLabel("About y axis")
+        self.y_ang_vel_sublabel.setFont(self.satoshi_medium)
+        self.y_ang_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.y_ang_vel_sublabel.setObjectName("yellowlabel")
+        self.y_ang_vel_panel_layout.addWidget(self.y_ang_vel_sublabel, 1)
 
-        z_ang_vel_panel = QFrame()
-        z_ang_vel_panel.setObjectName("transcontainer")
-        z_ang_vel_panel_layout = QVBoxLayout(z_ang_vel_panel)
+        self.z_ang_vel_panel = QFrame()
+        self.z_ang_vel_panel.setObjectName("transcontainer")
+        self.z_ang_vel_panel_layout = QVBoxLayout(self.z_ang_vel_panel)
 
-        z_ang_vel_label = QLabel("0°")
-        z_ang_vel_label.setFont(satoshi_black_large)
-        z_ang_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        z_ang_vel_label.setObjectName("yellowlabel")
-        z_ang_vel_panel_layout.addWidget(z_ang_vel_label, 1)
+        self.z_ang_vel_label = QLabel("0°")
+        self.z_ang_vel_label.setFont(self.satoshi_black_large)
+        self.z_ang_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.z_ang_vel_label.setObjectName("yellowlabel")
+        self.z_ang_vel_panel_layout.addWidget(self.z_ang_vel_label, 1)
 
-        z_ang_vel_sublabel = QLabel("About z axis")
-        z_ang_vel_sublabel.setFont(satoshi_medium)
-        z_ang_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        z_ang_vel_sublabel.setObjectName("yellowlabel")
-        z_ang_vel_panel_layout.addWidget(z_ang_vel_sublabel, 1)
+        self.z_ang_vel_sublabel = QLabel("About z axis")
+        self.z_ang_vel_sublabel.setFont(self.satoshi_medium)
+        self.z_ang_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.z_ang_vel_sublabel.setObjectName("yellowlabel")
+        self.z_ang_vel_panel_layout.addWidget(self.z_ang_vel_sublabel, 1)
 
-        right_panel_layout.addWidget(motion_x_sublabel, 1, 0)
-        right_panel_layout.addWidget(motion_y_sublabel, 3, 0)
-        right_panel_layout.addWidget(motion_z_sublabel, 5, 0)
-        right_panel_layout.addWidget(x_ang_vel_panel, 0, 0)
-        right_panel_layout.addWidget(y_ang_vel_panel, 2, 0)
-        right_panel_layout.addWidget(z_ang_vel_panel, 4, 0)
+        self.right_panel_layout.addWidget(self.motion_x_sublabel, 1, 0)
+        self.right_panel_layout.addWidget(self.motion_y_sublabel, 3, 0)
+        self.right_panel_layout.addWidget(self.motion_z_sublabel, 5, 0)
+        self.right_panel_layout.addWidget(self.x_ang_vel_panel, 0, 0)
+        self.right_panel_layout.addWidget(self.y_ang_vel_panel, 2, 0)
+        self.right_panel_layout.addWidget(self.z_ang_vel_panel, 4, 0)
 
-        right_panel_layout.setRowStretch(0, 27)
-        right_panel_layout.setRowStretch(1, 6)
-        right_panel_layout.setRowStretch(2, 27)
-        right_panel_layout.setRowStretch(3, 6)
-        right_panel_layout.setRowStretch(4, 27)
-        right_panel_layout.setRowStretch(5, 6)
+        self.right_panel_layout.setRowStretch(0, 27)
+        self.right_panel_layout.setRowStretch(1, 6)
+        self.right_panel_layout.setRowStretch(2, 27)
+        self.right_panel_layout.setRowStretch(3, 6)
+        self.right_panel_layout.setRowStretch(4, 27)
+        self.right_panel_layout.setRowStretch(5, 6)
 
-        left_panel = QFrame()
-        left_panel.setObjectName("panel")
-        left_panel.setFrameShadow(QFrame.Shadow.Raised)
-        left_panel_layout = QGridLayout(left_panel)
-        left_panel_layout.setContentsMargins(0, 0, 0, 0)
-        left_panel_layout.setSpacing(0)
+        self.left_panel = QFrame()
+        self.left_panel.setObjectName("panel")
+        self.left_panel.setFrameShadow(QFrame.Shadow.Raised)
+        self.left_panel_layout = QGridLayout(self.left_panel)
+        self.left_panel_layout.setContentsMargins(0, 0, 0, 0)
+        self.left_panel_layout.setSpacing(0)
 
-        position_panel = QFrame()
-        position_panel.setObjectName("highlightedcontainer")
-        position_panel_layout = QVBoxLayout(position_panel)
+        self.position_panel = QFrame()
+        self.position_panel.setObjectName("highlightedcontainer")
+        self.position_panel_layout = QVBoxLayout(self.position_panel)
 
-        position_prelabel = QLabel("Position")
-        position_prelabel.setFont(satoshi_black)
-        position_prelabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        position_prelabel.setObjectName("blacklabel")
-        position_panel_layout.addWidget(position_prelabel, 1)
+        self.position_prelabel = QLabel("Position")
+        self.position_prelabel.setFont(self.satoshi_black)
+        self.position_prelabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.position_prelabel.setObjectName("blacklabel")
+        self.position_panel_layout.addWidget(self.position_prelabel, 1)
 
-        position_label = QLabel("(0, 0, 0)")
-        position_label.setFont(satoshi_black_large)
-        position_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        position_label.setObjectName("blacklabel")
-        position_panel_layout.addWidget(position_label, 1)
+        self.position_label = QLabel("(0, 0, 0)")
+        self.position_label.setFont(self.satoshi_black_large)
+        self.position_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.position_label.setObjectName("blacklabel")
+        self.position_panel_layout.addWidget(self.position_label, 1)
 
-        position_sublabel = QLabel("In the Cartesian coordinate system")
-        position_sublabel.setFont(satoshi_medium)
-        position_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        position_sublabel.setObjectName("blacklabel")
-        position_panel_layout.addWidget(position_sublabel, 1)
+        self.position_sublabel = QLabel("In the Cartesian coordinate system")
+        self.position_sublabel.setFont(self.satoshi_medium)
+        self.position_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.position_sublabel.setObjectName("blacklabel")
+        self.position_panel_layout.addWidget(self.position_sublabel, 1)
 
-        x_vel_panel = QFrame()
-        x_vel_panel.setObjectName("semihighlightedcontainer")
-        x_vel_panel_layout = QVBoxLayout(x_vel_panel)
+        self.x_vel_panel = QFrame()
+        self.x_vel_panel.setObjectName("semihighlightedcontainer")
+        self.x_vel_panel_layout = QVBoxLayout(self.x_vel_panel)
 
-        x_vel_label = QLabel("0 m/s")
-        x_vel_label.setFont(satoshi_black)
-        x_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        x_vel_label.setObjectName("blacklabel")
-        x_vel_panel_layout.addWidget(x_vel_label, 1)
+        self.x_vel_label = QLabel("0 m/s")
+        self.x_vel_label.setFont(self.satoshi_black)
+        self.x_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.x_vel_label.setObjectName("blacklabel")
+        self.x_vel_panel_layout.addWidget(self.x_vel_label, 1)
 
-        x_vel_sublabel = QLabel("In +x direction")
-        x_vel_sublabel.setFont(satoshi_medium)
-        x_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        x_vel_sublabel.setObjectName("blacklabel")
-        x_vel_panel_layout.addWidget(x_vel_sublabel, 1)
+        self.x_vel_sublabel = QLabel("In +x direction")
+        self.x_vel_sublabel.setFont(self.satoshi_medium)
+        self.x_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.x_vel_sublabel.setObjectName("blacklabel")
+        self.x_vel_panel_layout.addWidget(self.x_vel_sublabel, 1)
 
-        y_vel_panel = QFrame()
-        y_vel_panel.setObjectName("semihighlightedcontainer")
-        y_vel_panel_layout = QVBoxLayout(y_vel_panel)
+        self.y_vel_panel = QFrame()
+        self.y_vel_panel.setObjectName("semihighlightedcontainer")
+        self.y_vel_panel_layout = QVBoxLayout(self.y_vel_panel)
 
-        y_vel_label = QLabel("0 m/s")
-        y_vel_label.setFont(satoshi_black)
-        y_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        y_vel_label.setObjectName("blacklabel")
-        y_vel_panel_layout.addWidget(y_vel_label, 1)
+        self.y_vel_label = QLabel("0 m/s")
+        self.y_vel_label.setFont(self.satoshi_black)
+        self.y_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.y_vel_label.setObjectName("blacklabel")
+        self.y_vel_panel_layout.addWidget(self.y_vel_label, 1)
 
-        y_vel_sublabel = QLabel("In +y direction")
-        y_vel_sublabel.setFont(satoshi_medium)
-        y_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        y_vel_sublabel.setObjectName("blacklabel")
-        y_vel_panel_layout.addWidget(y_vel_sublabel, 1)
+        self.y_vel_sublabel = QLabel("In +y direction")
+        self.y_vel_sublabel.setFont(self.satoshi_medium)
+        self.y_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.y_vel_sublabel.setObjectName("blacklabel")
+        self.y_vel_panel_layout.addWidget(self.y_vel_sublabel, 1)
 
-        z_vel_panel = QFrame()
-        z_vel_panel.setObjectName("semihighlightedcontainer")
-        z_vel_panel_layout = QVBoxLayout(z_vel_panel)
+        self.z_vel_panel = QFrame()
+        self.z_vel_panel.setObjectName("semihighlightedcontainer")
+        self.z_vel_panel_layout = QVBoxLayout(self.z_vel_panel)
 
-        z_vel_label = QLabel("0 m/s")
-        z_vel_label.setFont(satoshi_black)
-        z_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        z_vel_label.setObjectName("blacklabel")
-        z_vel_panel_layout.addWidget(z_vel_label, 1)
+        self.z_vel_label = QLabel("0 m/s")
+        self.z_vel_label.setFont(self.satoshi_black)
+        self.z_vel_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.z_vel_label.setObjectName("blacklabel")
+        self.z_vel_panel_layout.addWidget(self.z_vel_label, 1)
 
-        z_vel_sublabel = QLabel("In +z direction")
-        z_vel_sublabel.setFont(satoshi_medium)
-        z_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        z_vel_sublabel.setObjectName("blacklabel")
-        z_vel_panel_layout.addWidget(z_vel_sublabel, 1)
+        self.z_vel_sublabel = QLabel("In +z direction")
+        self.z_vel_sublabel.setFont(self.satoshi_medium)
+        self.z_vel_sublabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.z_vel_sublabel.setObjectName("blacklabel")
+        self.z_vel_panel_layout.addWidget(self.z_vel_sublabel, 1)
 
-        left_panel_layout.addWidget(position_panel, 0, 0)
-        left_panel_layout.addWidget(x_vel_panel, 1, 0)
-        left_panel_layout.addWidget(y_vel_panel, 2, 0)
-        left_panel_layout.addWidget(z_vel_panel, 3, 0)
+        self.left_panel_layout.addWidget(self.position_panel, 0, 0)
+        self.left_panel_layout.addWidget(self.x_vel_panel, 1, 0)
+        self.left_panel_layout.addWidget(self.y_vel_panel, 2, 0)
+        self.left_panel_layout.addWidget(self.z_vel_panel, 3, 0)
 
-        left_panel_layout.setRowStretch(0, 4)
-        left_panel_layout.setRowStretch(1, 2)
-        left_panel_layout.setRowStretch(2, 2)
-        left_panel_layout.setRowStretch(3, 2)
+        self.left_panel_layout.setRowStretch(0, 4)
+        self.left_panel_layout.setRowStretch(1, 2)
+        self.left_panel_layout.setRowStretch(2, 2)
+        self.left_panel_layout.setRowStretch(3, 2)
         
-        grid_layout.addWidget(right_panel, 0, 0, 3, 1)
-        grid_layout.addWidget(system_panel, 0, 1)
-        grid_layout.addWidget(control_panel, 1, 1)
-        grid_layout.addWidget(bottom_panel, 2, 1)
-        grid_layout.addWidget(left_panel, 0, 2, 3, 1)
+        self.grid_layout.addWidget(self.right_panel, 0, 0, 3, 1)
+        self.grid_layout.addWidget(self.system_panel, 0, 1)
+        self.grid_layout.addWidget(self.control_panel, 1, 1)
+        self.grid_layout.addWidget(self.bottom_panel, 2, 1)
+        self.grid_layout.addWidget(self.left_panel, 0, 2, 3, 1)
 
-        grid_layout.setRowStretch(0, 2)
-        grid_layout.setRowStretch(1, 7)
-        grid_layout.setRowStretch(2, 1)
-        grid_layout.setColumnStretch(0, 2)
-        grid_layout.setColumnStretch(1, 6)
-        grid_layout.setColumnStretch(2, 2)
+        self.grid_layout.setRowStretch(0, 2)
+        self.grid_layout.setRowStretch(1, 7)
+        self.grid_layout.setRowStretch(2, 1)
+        self.grid_layout.setColumnStretch(0, 2)
+        self.grid_layout.setColumnStretch(1, 6)
+        self.grid_layout.setColumnStretch(2, 2)
+
+        self.ros_thread = ROSNode()
+        self.ros_thread.telemetry_data.connect(self.update_telemetry)
+        self.ros_thread.start()
 
     def external_font(self, font_path, font_size):
-        font_id = QFontDatabase.addApplicationFont(font_path)
+        try:
+            pkg_share = get_package_share_directory("quad_main")
+            font_path = os.path.join(pkg_share, font_path)
+            font_id = QFontDatabase.addApplicationFont(font_path)
+        except Exception as e:
+            font_id = -1
 
         if font_id != -1:
             font_families = QFontDatabase.applicationFontFamilies(font_id)
@@ -343,8 +453,60 @@ class TelemetryDashboard(QWidget):
 
         return custom_font
 
+    def isHovering(self, x_velocity, y_velocity):
+        return math.isclose(x_velocity, 0.0, abs_tol=1e-2) and math.isclose(y_velocity, 0.0, abs_tol=1e-2)
 
-if __name__=="__main__":
+    def isLevelFlight(self, z_velocity):
+        if math.isclose(z_velocity, 0.0, abs_tol=1e-2):
+            return "level"
+        return "asc" if z_velocity > 0 else "desc"
+
+    def update_telemetry(
+            self,
+            x, y, z,
+            x_rot, y_rot, z_rot,
+            x_vel, y_vel, z_vel,
+            x_ang_vel, y_ang_vel, z_ang_vel
+    ):
+        print("Update initiated")
+        self.position_label.setText(f"({x:.2f}, {y:.2f}, {z:.2f})")
+
+        self.x_vel_label.setText(f"{x_vel:.2f} m/s")
+        self.y_vel_label.setText(f"{y_vel:.2f} m/s")
+        self.z_vel_label.setText(f"{z_vel:.2f} m/s")
+
+        self.x_ang_vel_label.setText(f"{x_rot:.1f}°")
+        self.y_ang_vel_label.setText(f"{y_rot:.1f}°")
+        self.z_ang_vel_label.setText(f"{z_rot:.1f}°")
+
+        self.motion_x_sublabel.setText(f"Angular velocity about x: {x_ang_vel:.2f} rad/s")
+        self.motion_y_sublabel.setText(f"Angular velocity about y: {y_ang_vel:.2f} rad/s")
+        self.motion_z_sublabel.setText(f"Angular velocity about z: {z_ang_vel:.2f} rad/s")
+
+        if self.isHovering(x_vel, y_vel):
+            self.motion_label.setText("Hovering")
+            self.motion_sublabel.setText(f"At ({x:.2f}, {y:.2f}, {z:.2f})")
+        else:
+            self.motion_label.setText("Cruising")
+            self.motion_sublabel.setText(f"At ({x:.2f}, {y:.2f}, {z:.2f}) now")
+
+        if self.isLevelFlight(z_vel) == "level":
+            self.z_label.setText("Level Flight")
+            self.z_sublabel.setText(f"At {z:.2f} m")
+        elif self.isLevelFlight(z_vel) == "asc":
+            self.z_label.setText("Ascending")
+            self.z_sublabel.setText(f"At {z:.2f} m now")
+        else:
+            self.z_label.setText("Descending")
+            self.z_sublabel.setText(f"At {z:.2f} m now")
+
+
+    def closeEvent(self, event):
+        self.ros_thread.stop()
+        event.accept()
+
+
+def main():
     app = QApplication(sys.argv)
 
     style = load_stylesheet("style.qss")
@@ -354,3 +516,6 @@ if __name__=="__main__":
     window.show()
 
     sys.exit(app.exec())
+
+if __name__=="__main__":
+    main()

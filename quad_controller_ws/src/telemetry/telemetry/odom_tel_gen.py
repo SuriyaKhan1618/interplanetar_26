@@ -6,7 +6,8 @@ class TelemetryPublisher(Node):
     def __init__(self):
         super().__init__("telemetry_publisher")
 
-        self.subscription = self.create_subscription(Odometry, 'odom', self.callback, 10)
+        self.subscription = self.create_subscription(Odometry, '/odom', self.callback, 10)
+        self.publisher = self.create_publisher()
         
     def callback(self, msg):
         self.get_logger().info(f"Drone sends: {msg}")

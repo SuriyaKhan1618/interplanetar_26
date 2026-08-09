@@ -62,6 +62,9 @@ class ModeSelector(QWidget):
         self.voice_button = QRadioButton("Voice Control Mode")
         self.manual_button = QRadioButton("Manual Control Mode")
 
+        self.voice_button.setFixedSize(QSize(300, 60))
+        self.manual_button.setFixedSize(QSize(320, 60))
+
         self.voice_button.setChecked(True)
 
         layout.addWidget(self.voice_button, 0, 0, alignment=Qt.AlignmentFlag.AlignRight)

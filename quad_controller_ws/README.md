@@ -1,6 +1,6 @@
 ##TASK 1: VOICE-CONTROLLED QUADROTOR & TELEMETRY
 
-This uses a basic SDF placeholder that subscribes to cmd_vel and publishes /odom. It can be replaced with any model that uses the similar.
+This uses a basic SDF placeholder that subscribes to /cmd_vel for Twist and publishes Odometry to /quadrotor/odom. It can be replaced with any model that uses the same message types. The main.py may be remapped to adjust topic names.
 
 ##PREREQUISITE SETUP
 
