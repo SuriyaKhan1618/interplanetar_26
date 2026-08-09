@@ -31,6 +31,8 @@ Launch the GUI dashboard/controller:
 ros2 run quad_main quad_controller
 ```
 
+Please wait a few seconds to let the downloading of Vosk models to be finished before you start to use voice controlled mode.
+
 ##EXIT
 
 Since Ctrl+C raises Python and PyQt6 conflicts, please instead exit the GUI app with the 'x' button.
