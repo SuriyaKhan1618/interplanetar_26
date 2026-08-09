@@ -1,5 +1,7 @@
 import sys
 import os
+import zipfile
+import urllib.request
 from ament_index_python.packages import get_package_share_directory
 import math
 
@@ -27,9 +29,14 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 from rclpy.executors import ExternalShutdownException
 
-from std_msgs.msg import String
+from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 import tf_transformations
+
+import json
+import queue
+import sounddevice as sd
+from vosk import Model, KaldiRecognizer
 
 
 def load_stylesheet(filename):
@@ -57,10 +64,14 @@ class ROSNode(QThread):
         self.node = None
 
     def run(self):
-        print("Running")
         rclpy.init()
         self.node = Node("quad_connector")
-        print("Made node")
+
+        self.velocities = {
+            "velX": 0.0,
+            "velY": 0.0,
+            "velZ": 0.0
+        }
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -76,6 +87,14 @@ class ROSNode(QThread):
             qos_profile
         )
 
+        self.node.publisher = self.node.create_publisher(
+            Twist,
+            "/quadrotor/cmd_vel",
+            10
+        )
+
+        self.node.create_timer(0.1, self.publish_command)
+
         try:
             rclpy.spin(self.node)
         except (KeyboardInterrupt, ExternalShutdownException):
@@ -89,8 +108,6 @@ class ROSNode(QThread):
                 pass
 
     def emit_telemetry(self, msg):
-        print("Signal emitted")
-
         x = msg.pose.pose.position.x
         y = msg.pose.pose.position.y
         z = msg.pose.pose.position.z
@@ -123,6 +140,43 @@ class ROSNode(QThread):
             x_ang_vel, y_ang_vel, z_ang_vel
         )
 
+    def calc_velocity(self, command):
+        if(command == "forward"):
+            self.velocities["velX"] = 0.3
+            self.velocities["velY"] = 0.0
+            self.velocities["velZ"] = 0.0
+        elif(command == "backward"):
+            self.velocities["velX"] = -0.3
+            self.velocities["velY"] = 0.0
+            self.velocities["velZ"] = 0.0
+        elif(command == "up"):
+            self.velocities["velX"] = 0.0
+            self.velocities["velY"] = 0.0
+            self.velocities["velZ"] = 0.3
+        elif(command == "down"):
+            self.velocities["velX"] = 0.0
+            self.velocities["velY"] = 0.0
+            self.velocities["velZ"] = -0.3
+        elif(command == "left"):
+            self.velocities["velX"] = 0.0
+            self.velocities["velY"] = 0.3
+            self.velocities["velZ"] = 0.0
+        elif(command == "right"):
+            self.velocities["velX"] = 0.0
+            self.velocities["velY"] = -0.3
+            self.velocities["velZ"] = 0.0
+        elif(command == "stop"):
+            self.velocities["velX"] = 0.0
+            self.velocities["velY"] = 0.0
+            self.velocities["velZ"] = 0.0
+
+    def publish_command(self):
+        velocity = Twist()
+        velocity.linear.x = self.velocities["velX"]
+        velocity.linear.y = self.velocities["velY"]
+        velocity.linear.z = self.velocities["velZ"]
+        self.node.publisher.publish(velocity)
+
     def stop(self):
         if self.node:
             self.node.executor.wake()
@@ -135,7 +189,84 @@ class ROSNode(QThread):
         self.wait()
 
 
+class VoiceProcessor(QThread):
+    command_published = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.is_running = True
+        self.q = queue.Queue()
+
+        self.commands = [
+            "forward",
+            "backward",
+            "up",
+            "down",
+            "left",
+            "right",
+            "stop"
+        ]
+
+    def audio_callback(self,indata, frames, time, status):
+        if self.is_running:
+            self.q.put(bytes(indata))
+
+    def get_model(self):
+        cache_dir = os.path.expanduser("~/.cache/vosk")
+        model_dir = os.path.join(cache_dir, "vosk-model-small-en-us-0.15")
+
+        if not os.path.exists(model_dir):
+            os.makedirs(cache_dir, exist_ok=True)
+            zip_path = os.path.join(cache_dir, "vosk-model-small-en-us-0.15.zip")
+            model_url = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+
+            print(f"Vosk model missing. Downloading from {model_url}...")
+            urllib.request.urlretrieve(model_url, zip_path)
+
+            print("Extracting Vosk model...")
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(cache_dir)
+
+            os.remove(zip_path)
+            print("Model download and setup complete.")
+
+        return model_dir
+    
+    def run(self):
+        model_path = self.get_model()
+        model = Model(model_path)
+        recognizer = KaldiRecognizer(model, 16000, json.dumps(self.commands + ["[unk]"]))
+
+        with sd.RawInputStream(
+            samplerate=16000,
+            blocksize=8000,
+            dtype='int16',
+            channels=1,
+            callback=self.audio_callback
+        ):
+            while self.is_running:
+                try:
+                    data = self.q.get(timeout=0.5   )
+                except queue.Empty:
+                    continue
+
+                if recognizer.AcceptWaveform(data):
+                    result = json.loads(recognizer.Result())
+
+                    recognized_text = result.get("text", "").strip()
+                    if recognized_text in self.commands:
+                        self.command_published.emit(recognized_text)
+
+    def stop(self):
+        self.is_running = False
+        self.quit()
+        self.wait()
+
+
 class TelemetryDashboard(QWidget):
+    command_publish = pyqtSignal(str)
+    voice_command = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         self.init_ui()
@@ -149,11 +280,13 @@ class TelemetryDashboard(QWidget):
         self.width = self.screen.width()
         self.height = self.screen.height()
 
-        self.resize(self.width, self.height)
+        self.resize(int(self.width/2), int(self.height/2))
 
         self.satoshi_black = self.external_font("Satoshi-Black.otf", 25)
         self.satoshi_medium = self.external_font("Satoshi-Medium.otf", 15)
         self.satoshi_black_large = self.external_font("Satoshi-Black.otf", 40)
+
+        self.mode = "voice"
 
         self.grid_layout = QGridLayout(self)
         self.grid_layout.setContentsMargins(0, 0, 0, 0)
@@ -239,6 +372,14 @@ class TelemetryDashboard(QWidget):
         self.stop.setIcon(self.pause_icon)
         self.stop.setIconSize(QSize(150, 150))
 
+        self.stop.clicked.connect(lambda: self.command_gen(self.stop.flag))
+        self.forward.clicked.connect(lambda: self.command_gen(self.forward.flag))
+        self.backward.clicked.connect(lambda: self.command_gen(self.backward.flag))
+        self.left.clicked.connect(lambda: self.command_gen(self.left.flag))
+        self.right.clicked.connect(lambda: self.command_gen(self.right.flag))
+        self.up.clicked.connect(lambda: self.command_gen(self.up.flag))
+        self.down.clicked.connect(lambda: self.command_gen(self.down.flag))
+
         self.control_panel_layout.addWidget(self.up, 0, 0, 3, 1, alignment=Qt.AlignmentFlag.AlignRight)
         self.control_panel_layout.addWidget(self.stop, 1, 2, alignment=Qt.AlignmentFlag.AlignCenter)
         self.control_panel_layout.addWidget(self.forward, 0, 2, alignment=Qt.AlignmentFlag.AlignCenter)
@@ -262,6 +403,8 @@ class TelemetryDashboard(QWidget):
 
         self.mode_manager = ModeSelector()
         self.bottom_panel_layout.addWidget(self.mode_manager, 1)
+
+        self.mode_manager.mode.connect(self.on_mode_changed)
 
         self.right_panel = QFrame()
         self.right_panel.setObjectName("panel")
@@ -446,8 +589,14 @@ class TelemetryDashboard(QWidget):
         self.grid_layout.setColumnStretch(2, 2)
 
         self.ros_thread = ROSNode()
+        self.voice_thread = VoiceProcessor()
+
         self.ros_thread.telemetry_data.connect(self.update_telemetry)
+        self.voice_thread.command_published.connect(self.voice_command_gen)
+        self.command_publish.connect(self.ros_thread.calc_velocity)
+
         self.ros_thread.start()
+        self.voice_thread.start()
 
     def external_font(self, font_path, font_size):
         try:
@@ -480,8 +629,7 @@ class TelemetryDashboard(QWidget):
             x_rot, y_rot, z_rot,
             x_vel, y_vel, z_vel,
             x_ang_vel, y_ang_vel, z_ang_vel
-    ):
-        print("Update initiated")
+    ):        
         self.position_label.setText(f"({x:.2f}, {y:.2f}, {z:.2f})")
 
         self.x_vel_label.setText(f"{x_vel:.2f} m/s")
@@ -513,9 +661,23 @@ class TelemetryDashboard(QWidget):
             self.z_label.setText("Descending")
             self.z_sublabel.setText(f"At {z:.2f} m now")
 
+    def command_gen(self, flag):
+        self.com_publish("manual", flag)
+
+    def voice_command_gen(self, com):
+        self.com_publish("voice", com)
+
+    def com_publish(self, source, com):
+        if self.mode != source:
+            return
+        self.command_publish.emit(com)
+
+    def on_mode_changed(self, mode):
+        self.mode = mode
 
     def closeEvent(self, event):
         self.ros_thread.stop()
+        self.voice_thread.stop()
         event.accept()
 
 

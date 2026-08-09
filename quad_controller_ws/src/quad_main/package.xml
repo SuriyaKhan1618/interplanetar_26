@@ -9,7 +9,7 @@
 
   <depend>rclpy</depend>
   <depend>tf_transformations</depend>
-  <depend>std_msgs/msg</depend>
+  <depend>geometry_msgs/msg</depend>
   <depend>nav_msgs/msg</depend>
 
   <test_depend>ament_copyright</test_depend>

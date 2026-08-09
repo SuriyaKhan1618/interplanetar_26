@@ -1,9 +1,10 @@
-from PyQt6.QtCore import Qt, QSize, QRect
+from PyQt6.QtCore import Qt, QSize, QRect, pyqtSignal
 from PyQt6.QtWidgets import (
     QGridLayout,
     QPushButton,
     QWidget,
     QRadioButton,
+    QButtonGroup,
     QGraphicsDropShadowEffect
 )
 from PyQt6.QtGui import QRegion, QColor
@@ -55,6 +56,8 @@ class OvalButton(QPushButton):
 
 
 class ModeSelector(QWidget):
+    mode = pyqtSignal(str)
+
     def __init__(self):
         super().__init__()
         layout = QGridLayout(self)
@@ -65,6 +68,10 @@ class ModeSelector(QWidget):
         self.voice_button.setFixedSize(QSize(300, 60))
         self.manual_button.setFixedSize(QSize(320, 60))
 
+        self.button_group = QButtonGroup(self)
+        self.button_group.addButton(self.voice_button, id=1)
+        self.button_group.addButton(self.manual_button, id=2)
+
         self.voice_button.setChecked(True)
 
         layout.addWidget(self.voice_button, 0, 0, alignment=Qt.AlignmentFlag.AlignRight)
@@ -72,3 +79,9 @@ class ModeSelector(QWidget):
 
         layout.setColumnStretch(0, 5)
         layout.setColumnStretch(1, 5)
+
+        self.button_group.idClicked.connect(self.on_mode_clicked)
+
+    def on_mode_clicked(self, button_id):
+        selected_mode = 'voice' if button_id == 1 else "manual"
+        self.mode.emit(selected_mode)
