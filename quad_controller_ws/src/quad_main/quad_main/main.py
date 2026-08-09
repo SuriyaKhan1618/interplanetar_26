@@ -58,6 +58,7 @@ class ROSNode(QThread):
         float, float, float,
         float, float, float
     )
+    system_status = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
@@ -66,6 +67,9 @@ class ROSNode(QThread):
     def run(self):
         rclpy.init()
         self.node = Node("quad_connector")
+
+        self.last_telem_time = self.node.get_clock().now()
+        self.timeout = 10.0
 
         self.velocities = {
             "velX": 0.0,
@@ -94,6 +98,7 @@ class ROSNode(QThread):
         )
 
         self.node.create_timer(0.1, self.publish_command)
+        self.node.create_timer(1.0, self.check_update)
 
         try:
             rclpy.spin(self.node)
@@ -139,6 +144,16 @@ class ROSNode(QThread):
             x_vel, y_vel, z_vel,
             x_ang_vel, y_ang_vel, z_ang_vel
         )
+
+        self.last_telem_time = self.node.get_clock().now()
+
+    def check_update(self):
+        elapsed = (self.node.get_clock().now() - self.last_telem_time).nanoseconds/1e9
+
+        if elapsed > self.timeout:
+            self.system_status.emit("offline")
+        else:
+            self.system_status.emit("online")
 
     def calc_velocity(self, command):
         if(command == "forward"):
@@ -592,6 +607,7 @@ class TelemetryDashboard(QWidget):
         self.voice_thread = VoiceProcessor()
 
         self.ros_thread.telemetry_data.connect(self.update_telemetry)
+        self.ros_thread.system_status.connect(self.update_status)
         self.voice_thread.command_published.connect(self.voice_command_gen)
         self.command_publish.connect(self.ros_thread.calc_velocity)
 
@@ -622,6 +638,34 @@ class TelemetryDashboard(QWidget):
         if math.isclose(z_velocity, 0.0, abs_tol=1e-2):
             return "level"
         return "asc" if z_velocity > 0 else "desc"
+
+    def update_status(self, status):
+        if status == "online":
+            self.status_label.setText("System online")
+            self.status_sublabel.setText("All telemetry data is updated.")
+
+            self.status_panel.setStyleSheet(
+                "background-color:#ffe83c;"
+            )
+            self.status_label.setStyleSheet(
+                "color:#000000;"
+            )
+            self.status_sublabel.setStyleSheet(
+                "color:#000000;"
+            )
+        else:
+            self.status_label.setText("System offline")
+            self.status_sublabel.setText("Telemetry data failed to update.")
+
+            self.status_panel.setStyleSheet(
+                "background-color:#92140c;"
+            )
+            self.status_label.setStyleSheet(
+                "color:#ffe83c;"
+            )
+            self.status_sublabel.setStyleSheet(
+                "color:#ffe83c;"
+            )
 
     def update_telemetry(
             self,
