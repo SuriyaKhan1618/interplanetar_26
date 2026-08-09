@@ -7,9 +7,14 @@ services:
     network_mode: host
     volumes:
       - .:/ros2_ws
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
+    devices:
+      - /dev/snd:/dev/snd
+    group_add:
+      - audio
     stdin_open: true
     tty: true
     ipc: host

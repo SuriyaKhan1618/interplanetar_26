@@ -8,19 +8,19 @@ A running Docker container as specified in the main directory's README.
 
 Clean previous build artifacts:
 
-'''bash
+```bash
 rm -rf build install log
-'''
+```
 
 ##RUN
 
-'''bash
+```bash
 colcon build
 source install/setup.bash
-'''
+```
 
 Launch the quadrotor simulation:
 
-'''bash
+```bash
 ros2 launch quad_sim sim.launch.py
-'''
+```

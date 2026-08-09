@@ -11,27 +11,33 @@ All three can be run from inside a single Docker container.
 
 Before spinning up the container, grant X11 display permissions (host):
 
-'''bash
+```bash
 xhost +local:root
-'''
+```
 
 ##RUN
 
 To spin up a container and enter the shell:
 
-'''bash
+```bash
 docker compose up -d --build
 docker exec -it interplanetar_26 bash
-'''
+```
+
+To exit:
+
+```bash
+exit
+```
 
 To stop and remove current container:
 
-'''bash
+```bash
 docker compose down
-'''
+```
 
 Clean previous artifacts:
 
-'''bash
+```bash
 rm -rf build install log
-'''
+```
