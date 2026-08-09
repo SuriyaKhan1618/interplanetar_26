@@ -36,7 +36,7 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/quadrotor/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            '/quadrotor/odom@nav_msgs/msg/Odometry[gz.msgs.Odometry'
+            'model/quadrotor/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry'
         ],
         output='screen'
     )

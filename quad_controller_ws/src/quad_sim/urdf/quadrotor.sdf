@@ -262,7 +262,6 @@
         <plugin filename="gz-sim-multicopter-control-system" name="gz::sim::systems::MulticopterVelocityControl">
             <robotNamespace>quadrotor</robotNamespace>
             <commandSubTopic>cmd_vel</commandSubTopic>
-            <enableSubTopic>enable</enableSubTopic>
             <comLinkName>base_link</comLinkName>
             
             <velocityGain>2.7 2.7 2.7</velocityGain>
@@ -270,31 +269,32 @@
             <angularRateGain>0.4 0.5 0.0</angularRateGain>
             <maximumLinearVelocity>5 5 5</maximumLinearVelocity>
             <maximumAngularVelocity>0 0 2</maximumAngularVelocity>
+            <rotorVelocitySlowdownSim>10</rotorVelocitySlowdownSim>
 
             <rotorConfiguration>
                 <rotor>
                     <jointName>rotor_1_joint</jointName>
                     <forceConstant>8.548e-06</forceConstant>
                     <momentConstant>0.016</momentConstant>
-                    <direction>1</direction> <!-- CCW -->
+                    <direction>1</direction>
                 </rotor>
                 <rotor>
                     <jointName>rotor_2_joint</jointName>
                     <forceConstant>8.548e-06</forceConstant>
                     <momentConstant>0.016</momentConstant>
-                    <direction>-1</direction> <!-- CW -->
+                    <direction>-1</direction>
                 </rotor>
                 <rotor>
                     <jointName>rotor_3_joint</jointName>
                     <forceConstant>8.548e-06</forceConstant>
                     <momentConstant>0.016</momentConstant>
-                    <direction>1</direction> <!-- CCW -->
+                    <direction>1</direction>
                 </rotor>
                 <rotor>
                     <jointName>rotor_4_joint</jointName>
                     <forceConstant>8.548e-06</forceConstant>
                     <momentConstant>0.016</momentConstant>
-                    <direction>-1</direction> <!-- CW -->
+                    <direction>-1</direction>
                 </rotor>
             </rotorConfiguration>
         </plugin>

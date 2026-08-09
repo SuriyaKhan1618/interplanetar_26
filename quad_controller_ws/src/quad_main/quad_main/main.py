@@ -25,6 +25,8 @@ from .widgets import CircularButton, OvalButton, ModeSelector
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from rclpy.executors import ExternalShutdownException
+
 from std_msgs.msg import String
 from nav_msgs.msg import Odometry
 import tf_transformations
@@ -69,16 +71,22 @@ class ROSNode(QThread):
 
         self.node.create_subscription(
             Odometry,
-            "/quadrotor/odom",
+            "model/quadrotor/odometry",
             self.emit_telemetry,
             qos_profile
         )
 
         try:
             rclpy.spin(self.node)
+        except (KeyboardInterrupt, ExternalShutdownException):
+            pass
         finally:
             self.node.destroy_node()
-            rclpy.shutdown()
+            try:
+                if rclpy.ok():
+                    rclpy.shutdown()
+            except Exception as e:
+                pass
 
     def emit_telemetry(self, msg):
         print("Signal emitted")
@@ -118,6 +126,11 @@ class ROSNode(QThread):
     def stop(self):
         if self.node:
             self.node.executor.wake()
+        try:
+            if rclpy.ok():
+                rclpy.shutdown()
+        except Exception as e:
+            pass
         self.quit()
         self.wait()
 
