@@ -28,7 +28,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            "quad_tf_bc = quad_sim.quad_tf_broadcaster:main"
+            "quad_tf_bc = quad_sim.quad_tf_broadcaster:main",
+            "tracker = quad_sim.burger_controller:main"
         ],
     },
 )

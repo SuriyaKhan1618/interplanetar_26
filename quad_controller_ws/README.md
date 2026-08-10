@@ -25,7 +25,7 @@ Export Turtlebot3 Burger:
 export TURTLEBOT3_MODEL=burger
 ```
 
-Launch the quadrotor simulation:
+Launch the quadrotor simulation alongside a tracking Turtlebot3 Burger under a unified tf tree:
 
 ```bash
 ros2 launch quad_sim sim.launch.py

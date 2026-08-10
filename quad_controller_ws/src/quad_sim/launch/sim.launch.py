@@ -62,6 +62,13 @@ def generate_launch_description():
         output='screen'
     )
 
+    tracker = Node(
+        package='quad_sim',
+        executable='tracker',
+        name='tracker',
+        output='screen'
+    )
+
     world_to_quadrotor_odom = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -94,6 +101,7 @@ def generate_launch_description():
         burger_spawn,
         ros_gz_bridge,
         quad_tf_broadcaster,
+        tracker,
         world_to_quadrotor_odom,
         world_to_burger_odom
     ])
