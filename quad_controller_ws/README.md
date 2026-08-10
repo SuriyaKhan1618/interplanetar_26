@@ -19,6 +19,12 @@ colcon build
 source install/setup.bash
 ```
 
+Export Turtlebot3 Burger:
+
+```bash
+export TURTLEBOT3_MODEL=burger
+```
+
 Launch the quadrotor simulation:
 
 ```bash

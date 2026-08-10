@@ -50,9 +50,41 @@ def generate_launch_description():
         executable='parameter_bridge',
         arguments=[
             '/quadrotor/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',
-            'model/quadrotor/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-            '/model/quadrotor/pose@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V',
+            'model/quadrotor/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry'
         ],
+        output='screen'
+    )
+
+    quad_tf_broadcaster = Node(
+        package='quad_sim',
+        executable='quad_tf_bc',
+        name='quad_tf_broadcaster',
+        output='screen'
+    )
+
+    world_to_quadrotor_odom = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='world_to_quadrotor_odom',
+        arguments=[
+            '--x', '0.0', 
+            '--y', '0.0', 
+            '--z', '0.2', 
+            '--frame-id', 'world', 
+            '--child-frame-id', 'quadrotor/odom'],
+        output='screen'
+    )
+
+    world_to_burger_odom = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='world_to_burger_odom',
+        arguments=[
+            '--x', '-2.0', 
+            '--y', '0.0', 
+            '--z', '0.0', 
+            '--frame-id', 'world', 
+            '--child-frame-id', 'odom'],
         output='screen'
     )
 
@@ -60,5 +92,8 @@ def generate_launch_description():
         gazebo_sim,
         spawn_quadrotor,
         burger_spawn,
-        ros_gz_bridge
+        ros_gz_bridge,
+        quad_tf_broadcaster,
+        world_to_quadrotor_odom,
+        world_to_burger_odom
     ])

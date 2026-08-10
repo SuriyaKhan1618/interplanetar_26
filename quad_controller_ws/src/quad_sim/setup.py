@@ -28,6 +28,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            "quad_tf_bc = quad_sim.quad_tf_broadcaster:main"
         ],
     },
 )
