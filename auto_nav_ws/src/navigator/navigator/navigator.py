@@ -2,6 +2,12 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
+from rclpy.qos import (
+    QoSProfile,
+    QoSDurabilityPolicy,
+    QoSReliabilityPolicy,
+    QoSHistoryPolicy,
+)
 
 import asyncio
 import threading
@@ -21,7 +27,14 @@ class Navigator(Node):
     def __init__(self):
         super().__init__("wayfinder")
 
-        self.publisher = self.create_publisher(Path, "/path", 10)
+        qos = QoSProfile(
+        durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        reliability=QoSReliabilityPolicy.RELIABLE,
+        history=QoSHistoryPolicy.KEEP_LAST,
+        depth=10,
+    )
+
+        self.publisher = self.create_publisher(Path, "/path", qos)
         self.url = "ws://localhost:8765"
 
         self.is_running = True

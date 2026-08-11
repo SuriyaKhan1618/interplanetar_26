@@ -1,6 +1,14 @@
 import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Path
+from geometry_msgs.msg import TwistStamped
+from rclpy.qos import (
+    QoSProfile,
+    QoSDurabilityPolicy,
+    QoSHistoryPolicy,
+    QoSReliabilityPolicy,
+)
+
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -15,7 +23,23 @@ class Controller(Node):
         self.path = None
         self.current_index = 0
         self.lookahead = 0.3
-        self.goal_tolerance = 0.05
+        self.goal_tolerance = 0.1
+
+        self.linear_speed = 0.15
+        self.kp_angular = 1.5
+        self.max_angular_speed = 1.0
+
+        path_qos = QoSProfile(
+        durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        reliability=QoSReliabilityPolicy.RELIABLE,
+        history=QoSHistoryPolicy.KEEP_LAST,
+        depth=1,
+    )
+        cmd_qos = QoSProfile(
+        reliability=QoSReliabilityPolicy.BEST_EFFORT,
+        durability=QoSDurabilityPolicy.VOLATILE,
+        depth=10,
+    )
 
         self.buffer = Buffer()
         self.listener = TransformListener(self.buffer, self)
@@ -24,20 +48,22 @@ class Controller(Node):
             Path,
             "/path",
             self.get_path,
-            10
+            path_qos
         )
+        self.publisher = self.create_publisher(TwistStamped, "/cmd_vel", cmd_qos)
 
         self.timer = self.create_timer(0.05, self.control_bot)
 
     def get_path(self, msg):
         self.path = msg
         self.current_index = 0
+        self.get_logger().info(f"{self.path}")
 
         self.destroy_subscription(self.subscription)
         self.subscription = None
 
     def get_pose(self):
-        path_frame = self.path.header.frame_id
+        path_frame = self.path.header.frame_id or 'odom'
 
         try:
             tform = self.buffer.lookup_transform(
@@ -89,7 +115,6 @@ class Controller(Node):
             return
 
         robot_x, robot_y, robot_yaw = robot_pose
-        robot_yaw_deg = math.degrees(robot_yaw)
 
         target_x, target_y, reached_goal = self.get_waypoint(
             robot_x, robot_y
@@ -97,10 +122,64 @@ class Controller(Node):
 
         if reached_goal:
             self.get_logger().info("Goal reached!")
+
+            cmd = TwistStamped()
+            cmd.header.stamp = self.get_clock().now().to_msg()
+            cmd.header.frame_id = "base_link"
+
+            self.publisher.publish(cmd)
             self.path = None
             return
 
-        self.get_logger().info(f"Target waypoint: {self.current_index}")
+        dx = target_x - robot_x
+        dy = target_y - robot_y
+
+        x_local = dx * math.cos(-robot_yaw) - dy * math.sin(-robot_yaw)
+        y_local = dx * math.sin(-robot_yaw) + dy * math.cos(-robot_yaw)
+
+        target_angle = math.atan2(y_local, x_local)
+
+        cmd = TwistStamped()
+        cmd.header.stamp = self.get_clock().now().to_msg()
+        cmd.header.frame_id = "base_link"
+
+        if abs(target_angle) > math.pi / 2:
+            cmd.twist.linear.x = 0.0
+
+            angular_velocity = self.kp_angular * target_angle
+            angular_velocity = max(
+                -self.max_angular_speed,
+                min(self.max_angular_speed, angular_velocity)
+            )
+            cmd.twist.angular.z = angular_velocity
+        else:
+            L_sq = x_local**2 + y_local**2
+            if L_sq > 0.0:
+                curvature = (2.0*y_local)/L_sq
+            else:
+                curvature = 0.0
+
+            cmd.twist.linear.x = self.linear_speed
+
+            angular_velocity = (
+                curvature
+                * self.linear_speed
+                * self.kp_angular
+            )
+            angular_velocity = max(
+                -self.max_angular_speed,
+                min(self.max_angular_speed, angular_velocity)
+            )
+
+            cmd.twist.angular.z = angular_velocity
+
+        self.publisher.publish(cmd)
+
+        self.get_logger().info(
+        f"Target waypoint: {self.current_index} | "
+        f"Target local: ({x_local:.2f}, {y_local:.2f}) | "
+        f"Angle: {math.degrees(target_angle):.1f}°"
+    )
 
 def main():
     rclpy.init()
