@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-colcon-common-extensions \
     python3-pip \
     python3-pyqt6 \
+    python3-opencv \
+    python3-numpy \
     python3-transforms3d \
     libsqlite3-dev \
     portaudio19-dev \
@@ -22,10 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-jazzy-geometry-msgs \
     ros-jazzy-nav-msgs \
     ros-jazzy-tf-transformations \
+    ros-jazzy-cv-bridge \
     ros-jazzy-turtlebot3-gazebo \
     ros-jazzy-turtlebot3 \
     ros-jazzy-turtlebot3-description \
     ros-jazzy-turtlebot3-msgs \
+    ros-jazzy-turtlebot4-simulator \
     ros-jazzy-robot-state-publisher \
     ros-jazzy-tf2-ros \
     x11-apps \
@@ -36,7 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb-cursor0 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip3 install --no-cache-dir vosk sounddevice --break-system-packages
+RUN pip3 install --no-cache-dir vosk sounddevice websockets==13.1 --break-system-packages
 
 COPY . .
 

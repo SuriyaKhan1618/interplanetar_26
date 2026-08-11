@@ -6,7 +6,6 @@ services:
       dockerfile: Dockerfile
     network_mode: host
     volumes:
-      - .:/ros2_ws
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ~/.Xauthority:/root/.Xauthority:ro
       - ${XDG_RUNTIME_DIR}/pulse/native:${XDG_RUNTIME_DIR}/pulse/native

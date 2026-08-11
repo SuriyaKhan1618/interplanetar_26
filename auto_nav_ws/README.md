@@ -20,3 +20,15 @@ colcon build
 source install/setup.bash
 ```
 
+Run the Turtlebot4 simulation in Gazebo:
+
+```bash
+ros2 launch questions main_assignment.launch.py
+```
+
+Start all navigation and computer vision nodes:
+
+```bash
+ros2 launch navigator navigator.launch.py
+```
+

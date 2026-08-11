@@ -2,6 +2,8 @@
 
 This uses a basic SDF placeholder that subscribes to /quadrotor/cmd_vel for Twist and publishes Odometry to model/quadrotor/odometry. It can be replaced with any model that uses the same message types. The main.py may be remapped to adjust topic names.
 
+The bonus task has been accomplished; the launch file also spawns a Burger tracker that tracks the quadrotor's position real-time.
+
 ##PREREQUISITE SETUP
 
 A running Docker container as specified in the main directory's README.
