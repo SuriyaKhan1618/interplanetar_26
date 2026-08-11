@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Path
 from geometry_msgs.msg import TwistStamped
+from sensor_msgs.msg import Image
 from rclpy.qos import (
     QoSProfile,
     QoSDurabilityPolicy,
@@ -15,6 +16,10 @@ from tf2_ros.transform_listener import TransformListener
 from tf_transformations import euler_from_quaternion
 
 import math
+
+import cv2
+from cv_bridge import CvBridge, CvBridgeError
+import numpy as np
 
 class Controller(Node):
     def __init__(self):
@@ -51,13 +56,14 @@ class Controller(Node):
             path_qos
         )
         self.publisher = self.create_publisher(TwistStamped, "/cmd_vel", cmd_qos)
+        self.image_subscription = None
+        self.bridge = CvBridge()
 
         self.timer = self.create_timer(0.05, self.control_bot)
 
     def get_path(self, msg):
         self.path = msg
         self.current_index = 0
-        self.get_logger().info(f"{self.path}")
 
         self.destroy_subscription(self.subscription)
         self.subscription = None
@@ -129,6 +135,9 @@ class Controller(Node):
 
             self.publisher.publish(cmd)
             self.path = None
+
+            self.create_image_subscription()
+
             return
 
         dx = target_x - robot_x
@@ -180,6 +189,105 @@ class Controller(Node):
         f"Target local: ({x_local:.2f}, {y_local:.2f}) | "
         f"Angle: {math.degrees(target_angle):.1f}°"
     )
+
+    def create_image_subscription(self):
+        self.image_subscription = self.create_subscription(
+            Image,
+            '/oakd/rgb/preview/image_raw',
+            self.image_callback,
+            10
+        )
+
+    def image_callback(self, msg):
+        try:
+            try:
+                image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            except CvBridgeError as e:
+                self.get_logger().warn(f"Error: {e}")
+                return
+
+            gray, hsv = self.preprocess_image(image)
+            spheres = self.find_sphere(gray)
+
+            if spheres:
+                color = self.get_largest_sphere_color(hsv, spheres)
+                self.get_logger().info(f"Color of the largest sphere: {color}")
+            else:
+                self.get_logger().info("No sphere color detected")
+            
+        finally:
+            if self.image_subscription is not None:
+                self.destroy_subscription(self.image_subscription)
+                self.image_subscription = None
+
+    def preprocess_image(self, image):
+        blurred = cv2.GaussianBlur(image, (9, 9), 2)
+        gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
+        hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+    
+        return gray, hsv
+
+    def find_sphere(self, gray_image):
+        circles = cv2.HoughCircles(
+            gray_image,
+            cv2.HOUGH_GRADIENT,
+            dp=1.2,
+            minDist=40,
+            param1=50,
+            param2=30,
+            minRadius=15,
+            maxRadius=200
+        )
+
+        if circles is None:
+            return
+
+        circles = np.uint16(np.around(circles))
+        detected_circles = circles[0, :]
+        sorted_spheres = sorted(
+            detected_circles,
+            key=lambda c: c[2],
+            reverse=True
+        )
+
+        return sorted_spheres[:3]
+
+    def get_largest_sphere_color(self, hsv_image, sorted_spheres):
+        if not sorted_spheres:
+            return None
+
+        largest_sphere = sorted_spheres[0]
+        x, y, r = largest_sphere
+
+        height, width, _ = hsv_image.shape
+        x = max(0, min(x, width - 1))
+        y = max(0, min(y, height - 1))
+
+        hsv_pixels = hsv_image[
+            max(0, y-r//3):min(height, y+r//3),
+            max(0, x-r//3):min(width, x+r//3)
+        ]
+
+        h, s, v = np.mean(hsv_pixels.reshape(-1, 3), axis=0)
+
+        if s < 50 or v < 50:
+            color_name = "White/Grey/Black"
+        elif (h >= 0 and h <= 10) or (h >= 170 and h <= 180):
+            color_name = "Red"
+        elif 11 <= h <= 25:
+            color_name = "Orange"
+        elif 26 <= h <= 35:
+            color_name = "Yellow"
+        elif 36 <= h <= 85:
+            color_name = "Green"
+        elif 86 <= h <= 125:
+            color_name = "Blue"
+        elif 126 <= h <= 169:
+            color_name = "Purple"
+        else:
+            color_name = "Unknown"
+
+        return color_name
 
 def main():
     rclpy.init()

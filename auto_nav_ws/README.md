@@ -1,5 +1,7 @@
 ##TASK 2: AUTONOMOUS NAVIGATION & VISION
 
+This task utilizes the question world and has a separate package with a launch file for navigation and vision.
+
 
 ##PREREQUISITE SETUP
 
