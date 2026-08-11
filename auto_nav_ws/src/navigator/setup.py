@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            "navigator = navigator.navigator:main"
+            "wayfinder = navigator.navigator:main",
+            "navigator = navigator.controller:main"
         ],
     },
 )

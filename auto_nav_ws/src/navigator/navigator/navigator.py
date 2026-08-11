@@ -19,7 +19,7 @@ def yaw_to_quaternion(yaw):
 
 class Navigator(Node):
     def __init__(self):
-        super().__init__("navigator")
+        super().__init__("wayfinder")
 
         self.publisher = self.create_publisher(Path, "/path", 10)
         self.url = "ws://localhost:8765"
