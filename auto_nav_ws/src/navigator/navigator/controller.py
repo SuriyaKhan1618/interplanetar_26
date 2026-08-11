@@ -22,12 +22,12 @@ class Controller(Node):
 
         self.path = None
         self.current_index = 0
-        self.lookahead = 0.3
-        self.goal_tolerance = 0.1
+        self.lookahead = 0.5
+        self.goal_tolerance = 0.05
 
-        self.linear_speed = 0.15
+        self.linear_speed = 0.4
         self.kp_angular = 1.5
-        self.max_angular_speed = 1.0
+        self.max_angular_speed = 1.5
 
         path_qos = QoSProfile(
         durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
