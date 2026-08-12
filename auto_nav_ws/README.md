@@ -2,6 +2,8 @@
 
 This task utilizes the question world and has a separate package with a launch file for navigation and vision.
 
+During SLAM integration, TurtleBot's clock kept restarting, resulting into a partial map. It is saved in src/navigator/map.
+
 
 ##PREREQUISITE SETUP
 
