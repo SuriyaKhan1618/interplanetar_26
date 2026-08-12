@@ -8,8 +8,9 @@
   <license>TODO: License declaration</license>
 
   <depend>rclpy</depend>
-  <depend>geometry_msgs.msg</depend>
-  <depend>shape_msgs.msg</depend>
+  <depend>geometry_msgs/msg</depend>
+  <depend>shape_msgs/msg</depend>
+  <depend>moveit_msgs/msg</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

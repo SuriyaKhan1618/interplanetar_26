@@ -1,65 +1,58 @@
 import rclpy
-from rclpy.node import Node
 from geometry_msgs.msg import Pose
+from moveit_msgs.msg import CollisionObject
 from shape_msgs.msg import SolidPrimitive
 
-from moveit.planning import PlanningSceneInterface
+from moveit.planning import MoveItPy
 
 
-class PlanningScene(Node):
-    def __init__(self):
-        super().__init__('planning_scene')
+def add_box(scene, object_id, frame_id, x, y, z, sx, sy, sz):
+    collision_object = CollisionObject()
 
-        self.scene = PlanningSceneInterface()
+    collision_object.id = object_id
+    collision_object.header.frame_id = frame_id
+    collision_object.operation = CollisionObject.ADD
 
-        self.add_object()
-        self.add_drop_zone()
+    primitive = SolidPrimitive()
+    primitive.type = SolidPrimitive.BOX
+    primitive.dimensions = [sx, sy, sz]
 
-    def add_object(self):
-        object_pose = Pose()
+    pose = Pose()
+    pose.position.x = x
+    pose.position.y = y
+    pose.position.z = z
+    pose.orientation.w = 1.0
 
-        object_pose.position.x = 0.30
-        object_pose.position.y = 0.00
-        object_pose.position.z = 0.05
-        object_pose.orientation.w = 1.0
+    collision_object.primitives.append(primitive)
+    collision_object.primitive_poses.append(pose)
 
-        primitive = SolidPrimitive()
-        primitive.type = SolidPrimitive.BOX
-        primitive.dimensions = [0.10, 0.10, 0.10]
+    scene.apply_collision_object(collision_object)
 
-        self.scene.add_collision_object(
-            'object',
-            primitive,
-            object_pose
-        )
-
-    def add_drop_zone(self):
-        drop_pose = Pose()
-
-        drop_pose.position.x = 0.00
-        drop_pose.position.y = 0.40
-        drop_pose.position.z = 0.025
-        drop_pose.orientation.w = 1.0
-
-        primitive = SolidPrimitive()
-        primitive.type = SolidPrimitive.BOX
-        primitive.dimensions = [0.20, 0.20, 0.05]
-
-        self.scene.add_collision_object(
-            'drop_zone',
-            primitive,
-            drop_pose
-        )
 
 def main():
     rclpy.init()
-    node = PlanningScene()
 
-    rclpy.spin(node)
+    robot = MoveItPy(node_name="planning_scene")
+    planning_scene_monitor = robot.get_planning_scene_monitor()
+    with planning_scene_monitor.read_write() as scene:
+        add_box(
+            scene,
+            "object",
+            "base_link",
+            0.30, 0.00, 0.05,
+            0.10, 0.10, 0.10
+        )
 
-    node.destroy_node()
+        add_box(
+            scene,
+            "drop_zone",
+            "base_link",
+            0.00, 0.40, 0.025,
+            0.20, 0.20, 0.05
+        )
+
     rclpy.shutdown()
 
 
-if __name__=='__main__':
+if __name__ == "__main__":
     main()
