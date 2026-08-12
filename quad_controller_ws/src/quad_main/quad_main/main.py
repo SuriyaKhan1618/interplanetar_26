@@ -295,7 +295,7 @@ class TelemetryDashboard(QWidget):
         self.width = self.screen.width()
         self.height = self.screen.height()
 
-        self.resize(int(self.width/2.7), int(self.height/2))
+        self.resize(int(self.width/5), int(self.height/2))
 
         self.satoshi_black = self.external_font("Satoshi-Black.otf", 25)
         self.satoshi_medium = self.external_font("Satoshi-Medium.otf", 15)
@@ -382,10 +382,6 @@ class TelemetryDashboard(QWidget):
         self.right = CircularButton("\u27A1", 120, 55, "right")
         self.up = OvalButton("\u2B06\n.\n.\n.\n.\n.\n.\n.\n.\n.\n.", 60, 300, 17, "up")
         self.down = OvalButton(".\n.\n.\n.\n.\n.\n.\n.\n.\n.\n\u2B07", 60, 300, 17, "down")
-
-        """self.pause_icon = self.stop.style().standardIcon(QStyle.StandardPixmap.SP_MediaPause)
-        self.stop.setIcon(self.pause_icon)
-        self.stop.setIconSize(QSize(150, 150))"""
 
         self.stop.clicked.connect(lambda: self.command_gen(self.stop.flag))
         self.forward.clicked.connect(lambda: self.command_gen(self.forward.flag))

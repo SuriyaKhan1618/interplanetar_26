@@ -32,6 +32,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-jazzy-turtlebot4-simulator \
     ros-jazzy-robot-state-publisher \
     ros-jazzy-tf2-ros \
+    ros-jazzy-moveit \
+    ros-jazzy-moveit-setup-assistant \
+    ros-jazzy-moveit-ros-planning-interface \
+    ros-jazzy-ros2-control \
+    ros-jazzy-ros2-controllers \
+    ros-jazzy-joint-state-publisher \
+    ros-jazzy-joint-state-publisher-gui \
+    ros-jazzy-xacro \
     x11-apps \
     mesa-utils \
     libgl1-mesa-dri \
