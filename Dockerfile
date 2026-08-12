@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ros-jazzy-robot-state-publisher \
     ros-jazzy-tf2-ros \
     ros-jazzy-moveit \
+    ros-jazzy-moveit-py \
     ros-jazzy-moveit-setup-assistant \
     ros-jazzy-moveit-ros-planning-interface \
     ros-jazzy-ros2-control \
