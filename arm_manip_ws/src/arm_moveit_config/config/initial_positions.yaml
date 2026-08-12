@@ -1,0 +1,9 @@
+# Default initial positions for arm_sim's ros2_control fake system
+
+initial_positions:
+  base_joint: 0
+  elbow_joint: 0
+  gripper_joint1: 0
+  roller_joint: 0
+  shoulder_joint: 0
+  wrist_joint: 0
